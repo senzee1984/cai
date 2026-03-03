@@ -11,7 +11,13 @@ from rich.table import Table
 from rich.panel import Panel
 
 from cai.repl.commands.base import Command, register_command
-from cai.auth import get_oauth_manager, AuthMethod
+from cai.auth import (
+    get_oauth_manager,
+    AuthMethod,
+    is_anthropic_model,
+    is_openai_model,
+    get_oauth_status_for_model,
+)
 
 console = Console()
 
@@ -131,6 +137,42 @@ class OAuthCommand(Command):
         )
 
         console.print(table)
+
+        # Current model and active OAuth
+        current_model = os.environ.get("CAI_MODEL", "gpt-4o")
+        console.print(f"\n[bold]Current Model:[/bold] [cyan]{current_model}[/cyan]")
+
+        # Determine which OAuth will be used
+        if is_anthropic_model(current_model):
+            target_provider = "Claude Code"
+            provider_available = claude["available"] and not claude.get("expired", False)
+            provider_key = "claude"
+        elif is_openai_model(current_model):
+            target_provider = "Codex (OpenAI)"
+            provider_available = codex["available"] and not codex.get("expired", False)
+            provider_key = "codex"
+        else:
+            target_provider = "Unknown"
+            provider_available = False
+            provider_key = None
+
+        # Show active authentication
+        console.print(f"[bold]Target OAuth Provider:[/bold] [cyan]{target_provider}[/cyan]")
+
+        if auth_method == "api_key":
+            auth_source = "[yellow]API Key (OAuth disabled)[/yellow]"
+        elif provider_available:
+            auth_source = f"[green]OAuth ({target_provider})[/green]"
+        else:
+            # Check if fallback API key is available
+            if provider_key == "claude" and status["fallback"]["anthropic_api_key"]:
+                auth_source = "[yellow]API Key (OAuth unavailable, using fallback)[/yellow]"
+            elif provider_key == "codex" and status["fallback"]["openai_api_key"]:
+                auth_source = "[yellow]API Key (OAuth unavailable, using fallback)[/yellow]"
+            else:
+                auth_source = "[red]None (No OAuth or API key available!)[/red]"
+
+        console.print(f"[bold]Active Authentication:[/bold] {auth_source}")
 
         # Fallback status
         console.print("\n[bold]API Key Fallback:[/bold]")
