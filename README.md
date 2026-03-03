@@ -1,3 +1,40 @@
+# Custom Fork by @senzee1984
+
+> This is a customized fork of [CAI (Cybersecurity AI)](https://github.com/aliasrobotics/cai) with additional features.
+
+## Custom Features
+
+### OAuth Authentication Support
+
+Added support for OAuth authentication from **Claude Code** and **Codex** CLI tools, allowing use of existing subscriptions without separate API keys.
+
+| Provider | Credential Path | Subscription |
+|----------|-----------------|--------------|
+| Claude Code | `~/.claude/.credentials.json` | Claude Pro/Max |
+| Codex | `~/.codex/auth.json` | ChatGPT Plus/Pro |
+
+**Configuration:**
+```bash
+# .env
+CAI_AUTH_METHOD=auto    # auto | oauth | api_key
+```
+
+**CLI Commands:**
+```bash
+/oauth status   # Show OAuth status
+/oauth refresh  # Force refresh tokens
+/oauth help     # Show help
+```
+
+**New Files:**
+- `src/cai/auth/` - OAuth authentication module
+- `src/cai/repl/commands/oauth.py` - OAuth CLI command
+- `docs/oauth.md` - OAuth documentation
+
+See [docs/oauth.md](docs/oauth.md) for detailed documentation.
+
+---
+
 # Cybersecurity AI (`CAI`)
 
 <div align="center">

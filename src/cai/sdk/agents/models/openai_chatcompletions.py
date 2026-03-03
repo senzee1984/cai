@@ -73,6 +73,7 @@ from cai.sdk.agents.simple_agent_manager import SimpleAgentManager, AGENT_MANAGE
 from cai.sdk.agents.parallel_isolation import PARALLEL_ISOLATION
 from cai.sdk.agents.run_to_jsonl import get_session_recorder
 from cai.sdk.agents.global_usage_tracker import GLOBAL_USAGE_TRACKER
+from cai.auth import inject_oauth_to_kwargs_async
 from cai.util import (
     _LIVE_STREAMING_PANELS,
     COST_TRACKER,
@@ -2857,6 +2858,10 @@ class OpenAIChatCompletionsModel(Model):
             if value is not NOT_GIVEN:
                 filtered_kwargs[key] = value
         kwargs = filtered_kwargs
+
+        # Inject OAuth token if available (supports Claude Code and Codex OAuth)
+        # This allows using OAuth credentials instead of or in addition to API keys
+        kwargs = await inject_oauth_to_kwargs_async(kwargs)
 
         # Add retry logic for rate limits
         max_retries = 3

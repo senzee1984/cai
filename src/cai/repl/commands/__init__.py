@@ -28,6 +28,7 @@ from cai.repl.commands import (  # pylint: disable=import-error,unused-import,li
     memory,  # Add the memory command
     merge,  # Add the merge command (alias for /parallel merge)
     model,
+    oauth,  # Add the OAuth command for Claude Code and Codex authentication
     parallel,  # Add the new parallel command
     platform,
     quickstart,  # Add the quickstart command
