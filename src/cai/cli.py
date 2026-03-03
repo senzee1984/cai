@@ -120,6 +120,37 @@ from dotenv import load_dotenv
 # This ensures env vars from .env take precedence over system env vars
 load_dotenv(override=True)
 
+# Setup OAuth tokens as environment variables (if available and CAI_AUTH_METHOD != "api_key")
+# This must happen early, before any OpenAI/Anthropic client instantiation
+def _setup_oauth_env():
+    """Set up OAuth tokens as environment variables for SDK compatibility."""
+    auth_method = os.environ.get("CAI_AUTH_METHOD", "auto").lower()
+    if auth_method == "api_key":
+        return  # User explicitly disabled OAuth
+
+    try:
+        from cai.auth import get_oauth_manager
+        manager = get_oauth_manager()
+
+        # Set Anthropic token if available and env var not already set
+        claude_creds = manager.get_claude_credentials()
+        if claude_creds and not claude_creds.is_expired:
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                os.environ["ANTHROPIC_API_KEY"] = claude_creds.access_token
+
+        # Set OpenAI token if available and env var not already set
+        codex_creds = manager.get_codex_credentials()
+        if codex_creds and not codex_creds.is_expired:
+            if not os.environ.get("OPENAI_API_KEY"):
+                os.environ["OPENAI_API_KEY"] = codex_creds.access_token
+
+    except ImportError:
+        pass  # OAuth module not available
+    except Exception:
+        pass  # Silently ignore OAuth setup errors
+
+_setup_oauth_env()
+
 # Configure Python warnings BEFORE any other imports
 import warnings
 import sys
