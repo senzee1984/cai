@@ -281,14 +281,39 @@ class CodexOAuthProvider(OAuthProvider):
             with open(creds_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            # Handle different possible formats
-            access_token = data.get("accessToken") or data.get("access_token") or ""
-            refresh_token = data.get("refreshToken") or data.get("refresh_token")
-            expires_at = data.get("expiresAt") or data.get("expires_at")
+            # Handle Codex actual format with nested "tokens" object
+            tokens = data.get("tokens", {})
+
+            # Try nested tokens first, then top-level
+            access_token = (
+                tokens.get("access_token") or
+                tokens.get("accessToken") or
+                data.get("accessToken") or
+                data.get("access_token") or
+                ""
+            )
+            refresh_token = (
+                tokens.get("refresh_token") or
+                tokens.get("refreshToken") or
+                data.get("refreshToken") or
+                data.get("refresh_token")
+            )
+
+            # Try to get expiration from various sources
+            expires_at = (
+                tokens.get("expiresAt") or
+                tokens.get("expires_at") or
+                data.get("expiresAt") or
+                data.get("expires_at")
+            )
+
+            # If no explicit expiration, try to parse from JWT access_token
+            if not expires_at and access_token:
+                expires_at = self._extract_exp_from_jwt(access_token)
 
             # If expires_at is in seconds (not milliseconds), convert
             if expires_at and expires_at < 10000000000:
-                expires_at = expires_at * 1000
+                expires_at = int(expires_at * 1000)
 
             if not access_token:
                 return None
@@ -302,6 +327,32 @@ class CodexOAuthProvider(OAuthProvider):
             )
         except (json.JSONDecodeError, IOError, KeyError) as e:
             print(f"[OAuth] Failed to load Codex credentials: {e}")
+            return None
+
+    def _extract_exp_from_jwt(self, token: str) -> Optional[int]:
+        """Extract expiration time from JWT token."""
+        try:
+            import base64
+            # JWT format: header.payload.signature
+            parts = token.split(".")
+            if len(parts) != 3:
+                return None
+
+            # Decode payload (add padding if needed)
+            payload = parts[1]
+            padding = 4 - len(payload) % 4
+            if padding != 4:
+                payload += "=" * padding
+
+            decoded = base64.urlsafe_b64decode(payload)
+            payload_data = json.loads(decoded)
+
+            # Get exp claim (in seconds)
+            exp = payload_data.get("exp")
+            if exp:
+                return int(exp * 1000)  # Convert to milliseconds
+            return None
+        except Exception:
             return None
 
     def save_credentials(self, credentials: OAuthCredentials) -> bool:
