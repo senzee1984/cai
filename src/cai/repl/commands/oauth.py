@@ -139,7 +139,33 @@ class OAuthCommand(Command):
         console.print(table)
 
         # Current model and active OAuth
-        current_model = os.environ.get("CAI_MODEL", "gpt-4o")
+        current_model = os.environ.get("CAI_MODEL", "")
+        default_model = "gpt-4o"
+
+        # Validate model
+        model_is_valid = False
+        model_warning = None
+
+        if not current_model:
+            model_warning = f"[yellow]CAI_MODEL not set, using default: {default_model}[/yellow]"
+            current_model = default_model
+            model_is_valid = True
+        elif is_anthropic_model(current_model) or is_openai_model(current_model):
+            model_is_valid = True
+        else:
+            # Check if it's a known provider format (provider/model)
+            known_providers = ["ollama", "deepseek", "openrouter", "huggingface", "together", "groq", "mistral", "cohere"]
+            model_lower = current_model.lower()
+            if any(p in model_lower for p in known_providers):
+                model_is_valid = True  # Known provider, just no OAuth support
+                model_warning = f"[yellow]Model '{current_model}' uses a provider without OAuth support[/yellow]"
+            else:
+                model_warning = f"[red]Model '{current_model}' not recognized! Falling back to: {default_model}[/red]"
+                current_model = default_model
+
+        if model_warning:
+            console.print(f"\n{model_warning}")
+
         console.print(f"\n[bold]Current Model:[/bold] [cyan]{current_model}[/cyan]")
 
         # Determine which OAuth will be used
@@ -152,7 +178,7 @@ class OAuthCommand(Command):
             provider_available = codex["available"] and not codex.get("expired", False)
             provider_key = "codex"
         else:
-            target_provider = "Unknown"
+            target_provider = "None (provider does not support OAuth)"
             provider_available = False
             provider_key = None
 
@@ -160,15 +186,18 @@ class OAuthCommand(Command):
         console.print(f"[bold]Target OAuth Provider:[/bold] [cyan]{target_provider}[/cyan]")
 
         if auth_method == "api_key":
-            auth_source = "[yellow]API Key (OAuth disabled)[/yellow]"
+            auth_source = "[yellow]API Key (OAuth disabled via CAI_AUTH_METHOD)[/yellow]"
+        elif provider_key is None:
+            # No OAuth provider for this model type (e.g., deepseek, ollama)
+            auth_source = "[yellow]API Key (model provider does not support OAuth)[/yellow]"
         elif provider_available:
             auth_source = f"[green]OAuth ({target_provider})[/green]"
         else:
             # Check if fallback API key is available
             if provider_key == "claude" and status["fallback"]["anthropic_api_key"]:
-                auth_source = "[yellow]API Key (OAuth unavailable, using fallback)[/yellow]"
+                auth_source = "[yellow]API Key (OAuth unavailable, using ANTHROPIC_API_KEY)[/yellow]"
             elif provider_key == "codex" and status["fallback"]["openai_api_key"]:
-                auth_source = "[yellow]API Key (OAuth unavailable, using fallback)[/yellow]"
+                auth_source = "[yellow]API Key (OAuth unavailable, using OPENAI_API_KEY)[/yellow]"
             else:
                 auth_source = "[red]None (No OAuth or API key available!)[/red]"
 
