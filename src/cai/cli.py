@@ -1545,6 +1545,18 @@ def run_cai_cli(
                                         # Ensure item is a ToolCallOutputItem before accessing attributes
                                         if isinstance(event.item, ToolCallOutputItem):
                                             call_id = event.item.raw_item["call_id"]
+                                            # Skip if we've already processed this tool result
+                                            if call_id in tool_results_seen:
+                                                continue
+                                            # Also check if it already exists in message_history
+                                            tool_msg_exists = any(
+                                                msg.get("role") == "tool"
+                                                and msg.get("tool_call_id") == call_id
+                                                for msg in agent.model.message_history
+                                            )
+                                            if tool_msg_exists:
+                                                tool_results_seen.add(call_id)
+                                                continue
                                             tool_results_seen.add(call_id)
                                             tool_msg = {
                                                 "role": "tool",

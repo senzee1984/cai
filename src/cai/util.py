@@ -1178,6 +1178,7 @@ def fix_message_list(messages):  # pylint: disable=R0914,R0915,R0912
     # Now process the messages with truncated IDs
     processed_messages = []
     tool_call_map = {}  # Map from tool_call_id to (assistant_idx, tool_idx)
+    seen_tool_result_ids = set()  # Track tool result IDs to prevent duplicates
 
     for i, msg in enumerate(sanitized_messages):
         # Skip empty messages (considered empty if 'content' is None or only whitespace)
@@ -1191,6 +1192,14 @@ def fix_message_list(messages):  # pylint: disable=R0914,R0915,R0912
                 processed_messages.append(msg)
             # Skip empty user messages entirely
             continue
+
+        # Check for duplicate tool messages before adding
+        if msg.get("role") == "tool" and msg.get("tool_call_id"):
+            tool_id = msg.get("tool_call_id")
+            if tool_id in seen_tool_result_ids:
+                # Skip duplicate tool result
+                continue
+            seen_tool_result_ids.add(tool_id)
 
         # Add valid messages to our processed list first
         processed_messages.append(msg)
